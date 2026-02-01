@@ -43,10 +43,6 @@ app.post("/download", async (req, res) => {
   console.log("Using yt-dlp command:", ytDlpPath);
 
   try {
-    // Set headers for download
-    res.header("Content-Type", "video/mp4");
-    res.header("Content-Disposition", `attachment; filename="video.mp4"`);
-
     // Stream the video directly using yt-dlp
     // Note: We removed the `node:${process.execPath}` runtime arg as the pip version behaves differently
     // and usually manages its own python environment.
@@ -58,8 +54,17 @@ app.post("/download", async (req, res) => {
       videoUrl,
     ]);
 
-    // Pipe video data to response
-    downloadProcess.stdout.pipe(res);
+    let headersSent = false;
+
+    // Pipe video data to response ONLY after we get data
+    downloadProcess.stdout.on('data', (chunk) => {
+        if (!headersSent) {
+            res.header("Content-Type", "video/mp4");
+            res.header("Content-Disposition", `attachment; filename="video.mp4"`);
+            headersSent = true;
+        }
+        res.write(chunk);
+    });
 
     // Log any errors from stderr (but don't send to client)
     downloadProcess.stderr.on("data", (data) => {
@@ -73,16 +78,20 @@ app.post("/download", async (req, res) => {
     // Handle process errors
     downloadProcess.on("error", (error) => {
       console.error("Failed to spawn yt-dlp:", error);
-      if (!res.headersSent) {
+      if (!headersSent) {
         res.status(500).json({ error: "Failed to start download" });
+        headersSent = true;
       }
     });
 
     // Handle process completion
     downloadProcess.on("close", (code) => {
-      if (code !== 0 && !res.headersSent) {
+      if (code !== 0 && !headersSent) {
         console.error(`yt-dlp exited with code ${code}`);
         res.status(500).json({ error: "Download failed" });
+        headersSent = true;
+      } else {
+          res.end();
       }
     });
 
