@@ -66,9 +66,12 @@ app.post("/download", async (req, res) => {
         res.write(chunk);
     });
 
+    let errorLog = "";
+
     // Log any errors from stderr (but don't send to client)
     downloadProcess.stderr.on("data", (data) => {
       const errorMsg = data.toString();
+      errorLog += errorMsg; // Accumulate error log
       // Only log actual errors, not progress info
       if (errorMsg.includes("ERROR")) {
         console.error("yt-dlp error:", errorMsg);
@@ -88,7 +91,11 @@ app.post("/download", async (req, res) => {
     downloadProcess.on("close", (code) => {
       if (code !== 0 && !headersSent) {
         console.error(`yt-dlp exited with code ${code}`);
-        res.status(500).json({ error: "Download failed" });
+        // Send the accumulated error log to the client for debugging
+        res.status(500).json({ 
+            error: "Download failed", 
+            details: errorLog 
+        });
         headersSent = true;
       } else {
           res.end();
