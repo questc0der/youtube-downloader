@@ -49,8 +49,7 @@ app.post("/download", async (req, res) => {
     const downloadProcess = spawn(ytDlpPath, [
       "--newline",
       "--no-warnings",
-      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      "--extractor-args", "youtube:player_client=android",
+      "--extractor-args", "youtube:player_client=ios",
       "-f", "best[ext=mp4]/best",
       "-o", "-",
       videoUrl,
