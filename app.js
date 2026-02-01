@@ -1,6 +1,7 @@
 const express = require("express");
 const { spawn } = require("child_process");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,15 +47,27 @@ app.post("/download", async (req, res) => {
     // Stream the video directly using yt-dlp
     // Note: We removed the `node:${process.execPath}` runtime arg as the pip version behaves differently
     // and usually manages its own python environment.
-    const downloadProcess = spawn(ytDlpPath, [
+    // Check for cookies.txt
+    const cookiesPath = path.join(__dirname, "cookies.txt");
+    const ytArgs = [
       "--newline",
       "--no-warnings",
       "--force-ipv4",
-      "--extractor-args", "youtube:player_client=tv",
       "-f", "best[ext=mp4]/best",
       "-o", "-",
       videoUrl,
-    ]);
+    ];
+
+    if (fs.existsSync(cookiesPath)) {
+        console.log("Using cookies.txt for authentication");
+        ytArgs.push("--cookies", cookiesPath);
+    } else {
+        // Fallback: try using web client if no cookies (though likely blocked)
+        // or we can try specific clients still. Let's keep it simple.
+        console.log("No cookies.txt found, proceeding without auth");
+    }
+
+    const downloadProcess = spawn(ytDlpPath, ytArgs);
 
     let headersSent = false;
 
