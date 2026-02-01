@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Video Downloader</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9835751570338252"
+     crossorigin="anonymous"></script>
+    
+    <style>
+      .download-btn {
+        transition: all 0.3s ease;
+      }
+      .download-btn:hover {
+        transform: translateY(-2px);
+      }
+      .ad-container {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px;
+        margin: 16px 0;
+        min-height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .ad-label {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 10px;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+      <!-- Header Banner Ad (728x90) -->
+      <div class="ad-container relative max-w-3xl mx-auto" style="min-height: 90px;">
+        <span class="ad-label">Advertisement</span>
+        <!-- Header Banner Ad -->
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-9835751570338252"
+             data-ad-slot="7132676404"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+      </div>
+
+      <!-- Main Content Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <!-- Main Content (Left 2 columns) -->
+        <div class="lg:col-span-2">
+          <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div class="bg-red-600 text-white p-6 text-center">
+              <h1 class="text-3xl font-bold">YouTube Video Downloader</h1>
+              <p class="mt-2">
+                Download your favorite YouTube videos in high quality
+              </p>
+            </div>
+
+            <div class="p-6">
+              <form id="downloadForm" action="/download" method="POST" target="_blank" class="space-y-4">
+                <div>
+                  <label for="url" class="block text-gray-700 font-medium mb-2"
+                    >YouTube Video URL</label
+                  >
+                  <input
+                    type="text"
+                    id="url"
+                    name="url"
+                    placeholder="Paste YouTube URL here..."
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                    required
+                    autocomplete="off"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  class="w-full bg-red-600 text-white py-3 px-6 rounded-md font-medium hover:bg-red-700 download-btn flex items-center justify-center"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  Download
+                </button>
+              </form>
+
+              <div id="loading" class="hidden mt-6 text-center">
+                <div
+                  class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500 mx-auto"
+                ></div>
+                <p class="mt-2 text-gray-600">Preparing your download...</p>
+              </div>
+
+              <div
+                id="error"
+                class="hidden mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded"
+              >
+                <p id="error-message"></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 text-center text-gray-500 text-sm">
+            <p>
+              Note: This tool is for personal use only. Please respect copyright
+              laws.
+            </p>
+          </div>
+        </div>
+
+        <!-- Sidebar Ad (Right column - 300x250) -->
+        <div class="lg:col-span-1">
+          <div class="ad-container relative sticky top-4" style="min-height: 250px;">
+            <span class="ad-label">Advertisement</span>
+            <!-- Sidebar Ad -->
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="ca-pub-9835751570338252"
+                 data-ad-slot="7132676404"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <script>
+                 (adsbygoogle = window.adsbygoogle || []).push({});
+            </script>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Banner Ad (728x90) -->
+      <div class="ad-container relative max-w-3xl mx-auto mt-8" style="min-height: 90px;">
+        <span class="ad-label">Advertisement</span>
+        <!-- Footer Banner Ad -->
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-9835751570338252"
+             data-ad-slot="7132676404"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+      </div>
+    </div>
+
+    <script>
+      document
+        .getElementById("downloadForm")
+        .addEventListener("submit", (e) => {
+          const loading = document.getElementById("loading");
+          const error = document.getElementById("error");
+          
+          // Hide error and show loading
+          error.classList.add("hidden");
+          loading.classList.remove("hidden");
+
+          // Hide loading after delay (download will happen in new tab)
+          setTimeout(() => {
+            loading.classList.add("hidden");
+          }, 3000);
+        });
+    </script>
+  </body>
+</html>
