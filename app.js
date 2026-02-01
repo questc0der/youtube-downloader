@@ -29,22 +29,32 @@ app.post("/download", async (req, res) => {
   }
 
   console.log("Processing download for URL:", videoUrl);
-  const ytDlpPath = path.join(__dirname, "bin", "yt-dlp");
-  const nodePath = process.execPath;
+  
+  // In Docker (Production), we use the system installed 'yt-dlp'
+  // Locally, we might fallback to the bin folder
+  let ytDlpPath = "yt-dlp"; 
+  
+  // Check if we are incorrectly trying to use the bin path in production
+  const localBinPath = path.join(__dirname, "bin", "yt-dlp");
+  
+  // If we are strictly ensuring local use, check existence, but for Docker we prefer 'yt-dlp' command
+  // We'll trust the command line 'yt-dlp' first if available.
+  
+  console.log("Using yt-dlp command:", ytDlpPath);
 
   try {
-    // Set headers for download (generic filename for now, yt-dlp will handle it)
+    // Set headers for download
     res.header("Content-Type", "video/mp4");
     res.header("Content-Disposition", `attachment; filename="video.mp4"`);
 
     // Stream the video directly using yt-dlp
-    // yt-dlp will output to stdout and we pipe it to the response
+    // Note: We removed the `node:${process.execPath}` runtime arg as the pip version behaves differently
+    // and usually manages its own python environment.
     const downloadProcess = spawn(ytDlpPath, [
-      "--newline",  // Progress on new lines
-      "--no-warnings",  // Reduce stderr noise
-      "-f", "best[ext=mp4]/best",  // Best quality mp4
-      "-o", "-",  // Output to stdout
-      "--js-runtimes", `node:${nodePath}`,
+      "--newline",
+      "--no-warnings",
+      "-f", "best[ext=mp4]/best",
+      "-o", "-",
       videoUrl,
     ]);
 

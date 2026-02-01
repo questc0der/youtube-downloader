@@ -1,7 +1,6 @@
-services:
   - type: web
     name: youtube-downloader
-    env: node
+    env: docker
     region: oregon
     plan: free
     buildCommand: npm install
