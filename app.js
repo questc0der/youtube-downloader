@@ -79,7 +79,7 @@ app.post("/download", async (req, res) => {
     downloadProcess.on("error", (error) => {
       console.error("Failed to spawn yt-dlp:", error);
       if (!headersSent) {
-        res.status(500).json({ error: "Failed to start download" });
+        res.status(500).json({ error: "Failed to start download: " + error.message });
         headersSent = true;
       }
     });
