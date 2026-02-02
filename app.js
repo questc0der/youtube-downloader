@@ -30,8 +30,11 @@ app.post("/info", async (req, res) => {
   const args = [
     "--dump-json",
     "--no-warnings",
-    "--force-ipv4",
     "--no-cache-dir",
+    "--force-ipv4",
+    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "--add-header", "Accept-Language: en-US,en;q=0.9",
+    "--extractor-args", "youtube:player_client=android,mweb",
     videoUrl
   ];
 
@@ -114,19 +117,21 @@ app.post("/download", async (req, res) => {
     const ytArgs = [
       "--newline",
       "--no-warnings",
-      "--force-ipv4",
       "--no-cache-dir",
+      "--force-ipv4",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "--add-header", "Accept-Language: en-US,en;q=0.9",
+      "--extractor-args", "youtube:player_client=android,mweb",
       "-f", formatId,
       "-o", "-",
       videoUrl,
     ];
 
     if (fs.existsSync(cookiesPath)) {
-        console.log("Using cookies.txt for authentication");
+        const stats = fs.statSync(cookiesPath);
+        console.log(`Using cookies.txt for authentication (${stats.size} bytes)`);
         ytArgs.push("--cookies", cookiesPath);
     } else {
-        // Fallback: try using web client if no cookies (though likely blocked)
-        // or we can try specific clients still. Let's keep it simple.
         console.log("No cookies.txt found, proceeding without auth");
     }
 
