@@ -34,7 +34,7 @@ app.post("/info", async (req, res) => {
     "--force-ipv4",
     "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     "--add-header", "Accept-Language: en-US,en;q=0.9",
-    "--extractor-args", "youtube:player_client=android,mweb",
+    "--extractor-args", "youtube:player_client=ios",
     videoUrl
   ];
 
@@ -121,7 +121,7 @@ app.post("/download", async (req, res) => {
       "--force-ipv4",
       "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
       "--add-header", "Accept-Language: en-US,en;q=0.9",
-      "--extractor-args", "youtube:player_client=android,mweb",
+      "--extractor-args", "youtube:player_client=ios",
       "-f", formatId,
       "-o", "-",
       videoUrl,
