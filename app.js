@@ -32,18 +32,21 @@ app.post("/info", async (req, res) => {
     "--no-warnings",
     "--no-cache-dir",
     "--force-ipv4",
-    "--impersonate", "chrome",
-    "--extractor-args", "youtube:player_client=ios,web_safari",
+    "--impersonate", "firefox",
+    "--extractor-args", "youtube:player_client=ios,mweb",
     videoUrl
   ];
 
   if (fs.existsSync(cookiesPath)) {
+      const stats = fs.statSync(cookiesPath);
       // Log first line (safely) to debug format in production logs
       try {
           const firstLine = fs.readFileSync(cookiesPath, 'utf8').split('\n')[0];
-          console.log(`Cookie file header: ${firstLine}`);
+          console.log(`Using cookies.txt (${stats.size} bytes). Header: ${firstLine}`);
       } catch (e) {}
       args.push("--cookies", cookiesPath);
+  } else {
+      console.log("CRITICAL: cookies.txt NOT FOUND in project root");
   }
 
   const process = spawn("yt-dlp", args);
@@ -123,8 +126,8 @@ app.post("/download", async (req, res) => {
       "--no-warnings",
       "--no-cache-dir",
       "--force-ipv4",
-      "--impersonate", "chrome",
-      "--extractor-args", "youtube:player_client=ios,web_safari",
+      "--impersonate", "firefox",
+      "--extractor-args", "youtube:player_client=ios,mweb",
       "-f", formatId,
       "-o", "-",
       videoUrl,
@@ -132,10 +135,10 @@ app.post("/download", async (req, res) => {
 
     if (fs.existsSync(cookiesPath)) {
         const stats = fs.statSync(cookiesPath);
-        console.log(`Using cookies.txt for authentication (${stats.size} bytes)`);
+        console.log(`Using cookies.txt for download (${stats.size} bytes)`);
         ytArgs.push("--cookies", cookiesPath);
     } else {
-        console.log("No cookies.txt found, proceeding without auth");
+        console.log("No cookies.txt found for download");
     }
 
     const downloadProcess = spawn(ytDlpPath, ytArgs);
