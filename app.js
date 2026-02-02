@@ -32,13 +32,17 @@ app.post("/info", async (req, res) => {
     "--no-warnings",
     "--no-cache-dir",
     "--force-ipv4",
-    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "--add-header", "Accept-Language: en-US,en;q=0.9",
-    "--extractor-args", "youtube:player_client=ios",
+    "--impersonate", "chrome",
+    "--extractor-args", "youtube:player_client=ios,web_safari",
     videoUrl
   ];
 
   if (fs.existsSync(cookiesPath)) {
+      // Log first line (safely) to debug format in production logs
+      try {
+          const firstLine = fs.readFileSync(cookiesPath, 'utf8').split('\n')[0];
+          console.log(`Cookie file header: ${firstLine}`);
+      } catch (e) {}
       args.push("--cookies", cookiesPath);
   }
 
@@ -119,9 +123,8 @@ app.post("/download", async (req, res) => {
       "--no-warnings",
       "--no-cache-dir",
       "--force-ipv4",
-      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "--add-header", "Accept-Language: en-US,en;q=0.9",
-      "--extractor-args", "youtube:player_client=ios",
+      "--impersonate", "chrome",
+      "--extractor-args", "youtube:player_client=ios,web_safari",
       "-f", formatId,
       "-o", "-",
       videoUrl,
