@@ -32,7 +32,7 @@ app.post("/info", async (req, res) => {
     "--no-warnings",
     "--no-cache-dir",
     "--force-ipv4",
-    "--impersonate", "firefox",
+    "--impersonate", "chrome",
     "--extractor-args", "youtube:player_client=ios,mweb",
     videoUrl
   ];
@@ -126,7 +126,7 @@ app.post("/download", async (req, res) => {
       "--no-warnings",
       "--no-cache-dir",
       "--force-ipv4",
-      "--impersonate", "firefox",
+      "--impersonate", "chrome",
       "--extractor-args", "youtube:player_client=ios,mweb",
       "-f", formatId,
       "-o", "-",

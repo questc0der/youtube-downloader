@@ -6,9 +6,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp via pip (ensures latest version)
-# We use --break-system-packages because we are in a container, so it's safe
-RUN pip3 install yt-dlp --break-system-packages
+# Install yt-dlp with curl_cffi support for impersonation bypasses
+RUN pip3 install "yt-dlp[default,curl_cffi]" --break-system-packages
 
 # Set working directory
 WORKDIR /app
