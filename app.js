@@ -53,7 +53,7 @@ app.post("/download", async (req, res) => {
       "--newline",
       "--no-warnings",
       "--force-ipv4",
-      "-f", "best[ext=mp4]/best",
+      "-f", "best",
       "-o", "-",
       videoUrl,
     ];
