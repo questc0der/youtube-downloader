@@ -5,6 +5,8 @@ const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const YT_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // Middleware
 app.use(express.static("public"));
@@ -25,64 +27,77 @@ app.post("/info", async (req, res) => {
   if (!videoUrl) return res.status(400).json({ error: "No URL provided" });
 
   console.log("Fetching info for:", videoUrl);
-  
+
   const cookiesPath = path.join(__dirname, "cookies.txt");
   const args = [
     "--dump-json",
     "--no-warnings",
     "--no-cache-dir",
     "--force-ipv4",
-    "--impersonate", "chrome",
-    "--extractor-args", "youtube:player_client=ios,mweb",
-    videoUrl
+    "--user-agent",
+    YT_USER_AGENT,
+    "--extractor-args",
+    "youtube:player_client=ios,mweb",
+    videoUrl,
   ];
 
   if (fs.existsSync(cookiesPath)) {
-      const stats = fs.statSync(cookiesPath);
-      // Log first line (safely) to debug format in production logs
-      try {
-          const firstLine = fs.readFileSync(cookiesPath, 'utf8').split('\n')[0];
-          console.log(`Using cookies.txt (${stats.size} bytes). Header: ${firstLine}`);
-      } catch (e) {}
-      args.push("--cookies", cookiesPath);
+    const stats = fs.statSync(cookiesPath);
+    // Log first line (safely) to debug format in production logs
+    try {
+      const firstLine = fs.readFileSync(cookiesPath, "utf8").split("\n")[0];
+      console.log(
+        `Using cookies.txt (${stats.size} bytes). Header: ${firstLine}`,
+      );
+    } catch (e) {}
+    args.push("--cookies", cookiesPath);
   } else {
-      console.log("CRITICAL: cookies.txt NOT FOUND in project root");
+    console.log("CRITICAL: cookies.txt NOT FOUND in project root");
   }
 
   const process = spawn("yt-dlp", args);
-  
+
   let output = "";
   let errorOutput = "";
 
-  process.stdout.on("data", (data) => output += data.toString());
-  process.stderr.on("data", (data) => errorOutput += data.toString());
+  process.stdout.on("data", (data) => (output += data.toString()));
+  process.stderr.on("data", (data) => (errorOutput += data.toString()));
 
   process.on("close", (code) => {
     if (code !== 0) {
       console.error("Info fetch failed:", errorOutput);
-      return res.status(500).json({ error: "Failed to fetch video info", details: errorOutput });
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch video info", details: errorOutput });
     }
-    
+
     try {
       const info = JSON.parse(output);
       // Filter formats: we want files that have both video and audio, or "best" specific ones
       // This is a simple filter; you might want to refine it securely.
       const formats = info.formats
-        .filter(f => f.ext === 'mp4' && f.vcodec !== 'none' && f.acodec !== 'none')
-        .map(f => ({
-            format_id: f.format_id,
-            resolution: f.resolution || 'unknown',
-            ext: f.ext,
-            note: f.format_note
+        .filter(
+          (f) => f.ext === "mp4" && f.vcodec !== "none" && f.acodec !== "none",
+        )
+        .map((f) => ({
+          format_id: f.format_id,
+          resolution: f.resolution || "unknown",
+          ext: f.ext,
+          note: f.format_note,
         }));
-        
-        // Add a generic "Best Quality" option at the top
-        formats.unshift({ format_id: "best", resolution: "Best Available", ext: "mp4", note: "Auto" });
+
+      // Add a generic "Best Quality" option at the top
+      formats.unshift({
+        format_id: "best",
+        resolution: "Best Available",
+        ext: "mp4",
+        note: "Auto",
+      });
 
       res.json({
         title: info.title,
         thumbnail: info.thumbnail,
-        formats: formats
+        formats: formats,
       });
     } catch (e) {
       console.error("JSON parse error:", e);
@@ -102,17 +117,17 @@ app.post("/download", async (req, res) => {
   }
 
   console.log("Processing download for URL:", videoUrl);
-  
+
   // In Docker (Production), we use the system installed 'yt-dlp'
   // Locally, we might fallback to the bin folder
-  let ytDlpPath = "yt-dlp"; 
-  
+  let ytDlpPath = "yt-dlp";
+
   // Check if we are incorrectly trying to use the bin path in production
   const localBinPath = path.join(__dirname, "bin", "yt-dlp");
-  
+
   // If we are strictly ensuring local use, check existence, but for Docker we prefer 'yt-dlp' command
   // We'll trust the command line 'yt-dlp' first if available.
-  
+
   console.log("Using yt-dlp command:", ytDlpPath);
 
   try {
@@ -126,19 +141,23 @@ app.post("/download", async (req, res) => {
       "--no-warnings",
       "--no-cache-dir",
       "--force-ipv4",
-      "--impersonate", "chrome",
-      "--extractor-args", "youtube:player_client=ios,mweb",
-      "-f", formatId,
-      "-o", "-",
+      "--user-agent",
+      YT_USER_AGENT,
+      "--extractor-args",
+      "youtube:player_client=ios,mweb",
+      "-f",
+      formatId,
+      "-o",
+      "-",
       videoUrl,
     ];
 
     if (fs.existsSync(cookiesPath)) {
-        const stats = fs.statSync(cookiesPath);
-        console.log(`Using cookies.txt for download (${stats.size} bytes)`);
-        ytArgs.push("--cookies", cookiesPath);
+      const stats = fs.statSync(cookiesPath);
+      console.log(`Using cookies.txt for download (${stats.size} bytes)`);
+      ytArgs.push("--cookies", cookiesPath);
     } else {
-        console.log("No cookies.txt found for download");
+      console.log("No cookies.txt found for download");
     }
 
     const downloadProcess = spawn(ytDlpPath, ytArgs);
@@ -146,13 +165,13 @@ app.post("/download", async (req, res) => {
     let headersSent = false;
 
     // Pipe video data to response ONLY after we get data
-    downloadProcess.stdout.on('data', (chunk) => {
-        if (!headersSent) {
-            res.header("Content-Type", "video/mp4");
-            res.header("Content-Disposition", `attachment; filename="video.mp4"`);
-            headersSent = true;
-        }
-        res.write(chunk);
+    downloadProcess.stdout.on("data", (chunk) => {
+      if (!headersSent) {
+        res.header("Content-Type", "video/mp4");
+        res.header("Content-Disposition", `attachment; filename="video.mp4"`);
+        headersSent = true;
+      }
+      res.write(chunk);
     });
 
     let errorLog = "";
@@ -171,7 +190,9 @@ app.post("/download", async (req, res) => {
     downloadProcess.on("error", (error) => {
       console.error("Failed to spawn yt-dlp:", error);
       if (!headersSent) {
-        res.status(500).json({ error: "Failed to start download: " + error.message });
+        res
+          .status(500)
+          .json({ error: "Failed to start download: " + error.message });
         headersSent = true;
       }
     });
@@ -181,13 +202,13 @@ app.post("/download", async (req, res) => {
       if (code !== 0 && !headersSent) {
         console.error(`yt-dlp exited with code ${code}`);
         // Send the accumulated error log to the client for debugging
-        res.status(500).json({ 
-            error: "Download failed", 
-            details: errorLog 
+        res.status(500).json({
+          error: "Download failed",
+          details: errorLog,
         });
         headersSent = true;
       } else {
-          res.end();
+        res.end();
       }
     });
 
@@ -197,7 +218,6 @@ app.post("/download", async (req, res) => {
         downloadProcess.kill();
       }
     });
-
   } catch (error) {
     console.error("Download error:", error);
     if (!res.headersSent) {
