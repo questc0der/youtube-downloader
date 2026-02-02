@@ -76,56 +76,63 @@
             </div>
 
             <div class="p-6">
-              <form id="downloadForm" action="/download" method="POST" target="_blank" class="space-y-4">
-                <div>
-                  <label for="url" class="block text-gray-700 font-medium mb-2"
-                    >YouTube Video URL</label
-                  >
+              <!-- Step 1: Get Video Info -->
+              <div id="step1">
+                <div class="mb-4">
+                  <label for="url" class="block text-gray-700 font-medium mb-2">YouTube Video URL</label>
                   <input
                     type="text"
                     id="url"
-                    name="url"
                     placeholder="Paste YouTube URL here..."
                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                     required
                     autocomplete="off"
                   />
                 </div>
-
                 <button
-                  type="submit"
-                  class="w-full bg-red-600 text-white py-3 px-6 rounded-md font-medium hover:bg-red-700 download-btn flex items-center justify-center"
+                  id="getInfoBtn"
+                  type="button"
+                  class="w-full bg-blue-600 text-white py-3 px-6 rounded-md font-medium hover:bg-blue-700 transition duration-300 flex items-center justify-center"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                  Download
+                  <span id="infoBtnText">Get Video Info</span>
+                  <div id="infoLoading" class="hidden ml-2 animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                 </button>
-              </form>
-
-              <div id="loading" class="hidden mt-6 text-center">
-                <div
-                  class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500 mx-auto"
-                ></div>
-                <p class="mt-2 text-gray-600">Preparing your download...</p>
               </div>
 
-              <div
-                id="error"
-                class="hidden mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded"
-              >
+              <!-- Step 2: Select Quality & Download -->
+              <div id="step2" class="hidden mt-6 border-t pt-6">
+                <div class="flex items-start space-x-4 mb-6">
+                    <img id="thumb" src="" alt="Thumbnail" class="w-32 rounded shadow-md hidden sm:block">
+                    <div>
+                        <h3 id="videoTitle" class="font-semibold text-lg text-gray-800 leading-tight"></h3>
+                    </div>
+                </div>
+
+                <form id="downloadForm" action="/download" method="POST" target="_blank" class="space-y-4">
+                    <input type="hidden" name="url" id="hiddenUrl">
+                    
+                    <div>
+                        <label for="format_id" class="block text-gray-700 font-medium mb-2">Select Quality</label>
+                        <select id="format_id" name="format_id" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <!-- Options populated via JS -->
+                        </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      class="w-full bg-red-600 text-white py-3 px-6 rounded-md font-medium hover:bg-red-700 download-btn flex items-center justify-center transition duration-300"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download Video
+                    </button>
+                </form>
+              </div>
+
+              <div id="error" class="hidden mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
                 <p id="error-message"></p>
+                <div id="error-details" class="mt-2 p-2 bg-red-50 text-xs text-red-800 font-mono hidden whitespace-pre-wrap"></div>
               </div>
             </div>
           </div>
@@ -141,8 +148,7 @@
 
           <div class="mt-6 text-center text-gray-500 text-sm">
             <p>
-              Note: This tool is for personal use only. Please respect copyright
-              laws.
+              Note: This tool is for personal use only. Please respect copyright laws.
             </p>
           </div>
         </div>
@@ -182,21 +188,73 @@
     </div>
 
     <script>
-      document
-        .getElementById("downloadForm")
-        .addEventListener("submit", (e) => {
-          const loading = document.getElementById("loading");
-          const error = document.getElementById("error");
-          
-          // Hide error and show loading
-          error.classList.add("hidden");
-          loading.classList.remove("hidden");
+      const getInfoBtn = document.getElementById("getInfoBtn");
+      const urlInput = document.getElementById("url");
+      const step2 = document.getElementById("step2");
+      const infoLoading = document.getElementById("infoLoading");
+      const errorDiv = document.getElementById("error");
+      const errorMsg = document.getElementById("error-message");
+      const errorDetails = document.getElementById("error-details");
 
-          // Hide loading after delay (download will happen in new tab)
-          setTimeout(() => {
-            loading.classList.add("hidden");
-          }, 3000);
-        });
+      const thumbImg = document.getElementById("thumb");
+      const videoTitle = document.getElementById("videoTitle");
+      const formatSelect = document.getElementById("format_id");
+      const hiddenUrl = document.getElementById("hiddenUrl");
+
+      getInfoBtn.addEventListener("click", async () => {
+          const url = urlInput.value.trim();
+          if (!url) return;
+
+          // Reset UI
+          errorDiv.classList.add("hidden");
+          step2.classList.add("hidden");
+          getInfoBtn.disabled = true;
+          infoLoading.classList.remove("hidden");
+
+          try {
+              const response = await fetch("/info", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ url })
+              });
+
+              const data = await response.json();
+
+              if (!response.ok) {
+                  throw new Error(data.error || "Failed to fetch video info");
+              }
+
+              // Populate Step 2
+              thumbImg.src = data.thumbnail;
+              videoTitle.textContent = data.title;
+              hiddenUrl.value = url;
+
+              // Populate Dropdown
+              formatSelect.innerHTML = "";
+              data.formats.forEach(format => {
+                  const option = document.createElement("option");
+                  option.value = format.format_id;
+                  option.textContent = `${format.resolution} (${format.ext}) ${format.note ? '- ' + format.note : ''}`;
+                  formatSelect.appendChild(option);
+              });
+
+              // Show Step 2
+              step2.classList.remove("hidden");
+
+          } catch (err) {
+              console.error(err);
+              errorMsg.textContent = err.message;
+              errorDiv.classList.remove("hidden");
+          } finally {
+              getInfoBtn.disabled = false;
+              infoLoading.classList.add("hidden");
+          }
+      });
+
+      // Handle actual download form submit just to clear loading state if we added any
+      document.getElementById("downloadForm").addEventListener("submit", () => {
+          // You could show a toaster here saying "Download started..."
+      });
     </script>
   </body>
 </html>

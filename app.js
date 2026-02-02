@@ -20,9 +20,71 @@ app.get("/", (req, res) => {
   res.render("index");
 });
 
+app.post("/info", async (req, res) => {
+  const videoUrl = req.body.url;
+  if (!videoUrl) return res.status(400).json({ error: "No URL provided" });
+
+  console.log("Fetching info for:", videoUrl);
+  
+  const cookiesPath = path.join(__dirname, "cookies.txt");
+  const args = [
+    "--dump-json",
+    "--no-warnings",
+    "--force-ipv4",
+    "--no-cache-dir",
+    videoUrl
+  ];
+
+  if (fs.existsSync(cookiesPath)) {
+      args.push("--cookies", cookiesPath);
+  }
+
+  const process = spawn("yt-dlp", args);
+  
+  let output = "";
+  let errorOutput = "";
+
+  process.stdout.on("data", (data) => output += data.toString());
+  process.stderr.on("data", (data) => errorOutput += data.toString());
+
+  process.on("close", (code) => {
+    if (code !== 0) {
+      console.error("Info fetch failed:", errorOutput);
+      return res.status(500).json({ error: "Failed to fetch video info", details: errorOutput });
+    }
+    
+    try {
+      const info = JSON.parse(output);
+      // Filter formats: we want files that have both video and audio, or "best" specific ones
+      // This is a simple filter; you might want to refine it securely.
+      const formats = info.formats
+        .filter(f => f.ext === 'mp4' && f.vcodec !== 'none' && f.acodec !== 'none')
+        .map(f => ({
+            format_id: f.format_id,
+            resolution: f.resolution || 'unknown',
+            ext: f.ext,
+            note: f.format_note
+        }));
+        
+        // Add a generic "Best Quality" option at the top
+        formats.unshift({ format_id: "best", resolution: "Best Available", ext: "mp4", note: "Auto" });
+
+      res.json({
+        title: info.title,
+        thumbnail: info.thumbnail,
+        formats: formats
+      });
+    } catch (e) {
+      console.error("JSON parse error:", e);
+      res.status(500).json({ error: "Failed to parse video info" });
+    }
+  });
+});
+
 app.post("/download", async (req, res) => {
   console.log("Download request received:", req.body);
   const videoUrl = req.body.url;
+  const formatId = req.body.format_id || "best";
 
   if (!videoUrl) {
     console.log("No URL provided");
@@ -54,7 +116,7 @@ app.post("/download", async (req, res) => {
       "--no-warnings",
       "--force-ipv4",
       "--no-cache-dir",
-      "-f", "best",
+      "-f", formatId,
       "-o", "-",
       videoUrl,
     ];
