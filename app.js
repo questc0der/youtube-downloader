@@ -7,6 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const YT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+// Progressive fallbacks to try when DASH + signature issues hit.
+const FALLBACK_FORMATS = ["mp4", "18"]; // mp4 360p is often available
 
 // Middleware
 app.use(express.static("public"));
@@ -131,93 +133,105 @@ app.post("/download", async (req, res) => {
   console.log("Using yt-dlp command:", ytDlpPath);
 
   try {
-    // Stream the video directly using yt-dlp
-    // Note: We removed the `node:${process.execPath}` runtime arg as the pip version behaves differently
-    // and usually manages its own python environment.
-    // Check for cookies.txt
     const cookiesPath = path.join(__dirname, "cookies.txt");
-    const ytArgs = [
-      "--newline",
-      "--no-warnings",
-      "--no-cache-dir",
-      "--force-ipv4",
-      "--user-agent",
-      YT_USER_AGENT,
-      "--extractor-args",
-      "youtube:player_client=ios,mweb",
-      "-f",
+    const hasCookies = fs.existsSync(cookiesPath);
+    const formatsToTry = [
       formatId,
-      "-o",
-      "-",
-      videoUrl,
+      ...FALLBACK_FORMATS.filter((f) => f !== formatId),
     ];
 
-    if (fs.existsSync(cookiesPath)) {
-      const stats = fs.statSync(cookiesPath);
-      console.log(`Using cookies.txt for download (${stats.size} bytes)`);
-      ytArgs.push("--cookies", cookiesPath);
-    } else {
-      console.log("No cookies.txt found for download");
-    }
+    const attemptDownload = (idx) => {
+      const currentFormat = formatsToTry[idx];
+      const ytArgs = [
+        "--newline",
+        "--no-warnings",
+        "--no-cache-dir",
+        "--force-ipv4",
+        "--user-agent",
+        YT_USER_AGENT,
+        "--extractor-args",
+        "youtube:player_client=ios,mweb",
+        "-f",
+        currentFormat,
+        "-o",
+        "-",
+        videoUrl,
+      ];
 
-    const downloadProcess = spawn(ytDlpPath, ytArgs);
-
-    let headersSent = false;
-
-    // Pipe video data to response ONLY after we get data
-    downloadProcess.stdout.on("data", (chunk) => {
-      if (!headersSent) {
-        res.header("Content-Type", "video/mp4");
-        res.header("Content-Disposition", `attachment; filename="video.mp4"`);
-        headersSent = true;
-      }
-      res.write(chunk);
-    });
-
-    let errorLog = "";
-
-    // Log any errors from stderr (but don't send to client)
-    downloadProcess.stderr.on("data", (data) => {
-      const errorMsg = data.toString();
-      errorLog += errorMsg; // Accumulate error log
-      // Only log actual errors, not progress info
-      if (errorMsg.includes("ERROR")) {
-        console.error("yt-dlp error:", errorMsg);
-      }
-    });
-
-    // Handle process errors
-    downloadProcess.on("error", (error) => {
-      console.error("Failed to spawn yt-dlp:", error);
-      if (!headersSent) {
-        res
-          .status(500)
-          .json({ error: "Failed to start download: " + error.message });
-        headersSent = true;
-      }
-    });
-
-    // Handle process completion
-    downloadProcess.on("close", (code) => {
-      if (code !== 0 && !headersSent) {
-        console.error(`yt-dlp exited with code ${code}`);
-        // Send the accumulated error log to the client for debugging
-        res.status(500).json({
-          error: "Download failed",
-          details: errorLog,
-        });
-        headersSent = true;
+      if (hasCookies) {
+        const stats = fs.statSync(cookiesPath);
+        console.log(`Using cookies.txt for download (${stats.size} bytes)`);
+        ytArgs.push("--cookies", cookiesPath);
       } else {
-        res.end();
+        console.log("No cookies.txt found for download");
       }
-    });
 
-    // Handle client disconnect
-    res.on("close", () => {
-      if (!downloadProcess.killed) {
-        downloadProcess.kill();
-      }
-    });
+      console.log(`yt-dlp starting with format ${currentFormat}`);
+      const downloadProcess = spawn(ytDlpPath, ytArgs);
+
+      let headersSent = false;
+      let errorLog = "";
+
+      downloadProcess.stdout.on("data", (chunk) => {
+        if (!headersSent) {
+          res.header("Content-Type", "video/mp4");
+          res.header(
+            "Content-Disposition",
+            `attachment; filename=\"video.mp4\"`,
+          );
+          headersSent = true;
+        }
+        res.write(chunk);
+      });
+
+      downloadProcess.stderr.on("data", (data) => {
+        const errorMsg = data.toString();
+        errorLog += errorMsg;
+        if (errorMsg.includes("ERROR")) {
+          console.error("yt-dlp error:", errorMsg);
+        }
+      });
+
+      downloadProcess.on("error", (error) => {
+        console.error("Failed to spawn yt-dlp:", error);
+        if (!headersSent) {
+          res
+            .status(500)
+            .json({ error: "Failed to start download: " + error.message });
+        }
+      });
+
+      downloadProcess.on("close", (code) => {
+        if (code === 0 || headersSent) {
+          return res.end();
+        }
+
+        console.warn(
+          `yt-dlp exited with code ${code} for format ${currentFormat}`,
+        );
+        const nextIdx = idx + 1;
+        if (nextIdx < formatsToTry.length) {
+          console.warn(
+            `Retrying with fallback format ${formatsToTry[nextIdx]}`,
+          );
+          return attemptDownload(nextIdx);
+        }
+
+        res.status(502).json({
+          error: "Download failed",
+          details: errorLog || `yt-dlp exited with code ${code}`,
+          hint: "YouTube changed signatures; update yt-dlp and refresh cookies.",
+        });
+      });
+
+      res.on("close", () => {
+        if (!downloadProcess.killed) {
+          downloadProcess.kill();
+        }
+      });
+    };
+
+    attemptDownload(0);
   } catch (error) {
     console.error("Download error:", error);
     if (!res.headersSent) {
